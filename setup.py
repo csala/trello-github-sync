@@ -91,7 +91,7 @@ setup(
     license="MIT license",
     long_description=readme + '\n\n' + history,
     long_description_content_type='text/markdown',
-    name='Trello Github Sync',
+    name='tghs',
     packages=find_packages(include=['tghs', 'tghs.*']),
     python_requires='>=3.5',
     setup_requires=setup_requires,
