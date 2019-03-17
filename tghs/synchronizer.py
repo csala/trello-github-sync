@@ -1,4 +1,5 @@
 from collections import defaultdict
+
 from github import Github
 from github.Issue import Issue
 from github.Milestone import Milestone
