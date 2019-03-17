@@ -27,7 +27,7 @@ def _parse_args():
 
     parser.add_argument('-c', '--config', help='Path to custom configuration file')
     parser.add_argument('-p', '--profile', help='Profile to use')
-    parser.add_argument('projects', nargs='*', help='Path to custom configuration file')
+    parser.add_argument('projects', nargs='*', help='Names of the projects to process')
 
     return parser.parse_args()
 

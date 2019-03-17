@@ -1,3 +1,4 @@
+from collections import defaultdict
 from github import Github
 from github.Issue import Issue
 from github.Milestone import Milestone
@@ -24,13 +25,20 @@ class TrelloGitHubSynchronizer():
     _label_new = None
     _label_closed = None
 
+    def _get_cards(self):
+        cards = defaultdict(list)
+        for card in self.board.all_cards():
+            cards[card.name].append(card)
+
+        return cards
+
     def __init__(self, github, trello, board_name):
         self.github = github
         self.trello = trello
         self.boards = {b.name: b for b in self.trello.list_boards()}
         self.board = self.boards[board_name]
         self.lists = {l.name: l for l in self.board.all_lists()}
-        self.cards = {c.name: c for c in self.board.all_cards()}
+        self.cards = self._get_cards()
 
     def get_list(self, name):
         trello_list = self.lists.get(name)
@@ -87,7 +95,7 @@ class TrelloGitHubSynchronizer():
 
     def _add_card(self, trello_list, *args, **kwargs):
         card = trello_list.add_card(*args, **kwargs)
-        self.cards[card.name] = card
+        self.cards[card.name].append(card)
 
     def _create_issue_card(self, trello_list, title, element):
         if not element.pull_request:
@@ -117,32 +125,37 @@ class TrelloGitHubSynchronizer():
         if (not card.labels) or self.label_closed not in card.labels:
             print("Closing card: {}".format(card.name))
             card.add_label(self.label_closed)
-            if card.labels is None:
-                self.cards[card.name] = self.trello.get_card(card.id)
-            else:
-                card.labels.append(self.label_closed)
+            cards = self.cards[card.name]
+            index = cards.index(card)
+            cards.remove(card)
+            cards.insert(index, self.trello.get_card(card.id))
 
     def _sync(self, elements, list_name, repo_name):
         trello_list = self.get_list(list_name)
-        # cards = {c.name: c for c in trello_list.list_cards()}
-        self.cards = {c.name: c for c in self.board.all_cards()}
+        self.cards = self._get_cards()
 
         for element in elements:
             title = self.get_title(list_name, element)
-            card = self.cards.get(title)
-            if not card and element.state == 'open':
-                self.create_card(trello_list, title, element, repo_name)
-            elif card and not card.closed and element.state == 'closed':
-                self.close_card(card)
+            cards = self.cards[title]
+            for card in cards:
+                if not card and element.state == 'open':
+                    self.create_card(trello_list, title, element, repo_name)
+                elif card and not card.closed and element.state == 'closed':
+                    self.close_card(card)
 
     def sync(self, repo_name, list_name, pr_list_name=None):
-        github_repo = self.github.get_repo(repo_name)
+        try:
+            github_repo = self.github.get_repo(repo_name)
 
-        print("Synchronizing {} Issues".format(repo_name))
-        self._sync(github_repo.get_issues(state='all'), list_name, repo_name)
+            print("Synchronizing {} Issues".format(repo_name))
+            self._sync(github_repo.get_issues(state='all'), list_name, repo_name)
 
-        print("Synchronizing {} Pull Requests".format(repo_name))
-        self._sync(github_repo.get_pulls(state='all'), list_name, repo_name)
+            print("Synchronizing {} Pull Requests".format(repo_name))
+            self._sync(github_repo.get_pulls(state='all'), list_name, repo_name)
 
-        print("Synchronizing {} Milestones".format(repo_name))
-        self._sync(github_repo.get_milestones(state='all'), list_name, repo_name)
+            print("Synchronizing {} Milestones".format(repo_name))
+            self._sync(github_repo.get_milestones(state='all'), list_name, repo_name)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            raise
