@@ -138,11 +138,13 @@ class TrelloGitHubSynchronizer():
         for element in elements:
             title = self.get_title(list_name, element)
             cards = self.cards[title]
-            for card in cards:
-                if not card and element.state == 'open':
-                    self.create_card(trello_list, title, element, repo_name)
-                elif card and not card.closed and element.state == 'closed':
-                    self.close_card(card)
+            if not cards and element.state == 'open':
+                self.create_card(trello_list, title, element, repo_name)
+
+            elif element.state == 'closed':
+                for card in cards:
+                    if card and not card.closed:
+                        self.close_card(card)
 
     def sync(self, repo_name, list_name, pr_list_name=None):
         try:
